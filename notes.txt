@@ -1,0 +1,40 @@
+sacct --format="JobID,TotalCPU,CPUTime,"
+
+
+/vol/csedu-nobackup/project/sdejong/.cache
+
+mv ~/.cache/* /vol/csedu-nobackup/project/sdejong/.cache
+ln -s /vol/csedu-nobackup/project/sdejong/.cache ~/.cache
+
+mkdir /vol/csedu-nobackup/project/sdejong/jn_conda_env
+ln -s /vol/csedu-nobackup/project/sdejong/jn_conda_env jn_conda_env
+
+mv /vol/csedu-nobackup/project/sdejong/jn_conda_env /vol/csedu-nobackup/project/sdejong/conda_envs
+ln -s /vol/csedu-nobackup/project/sdejong/conda_envs conda_envs
+
+conda create -p conda_envs/jp
+conda config --append envs_dirs /home/sdejong/conda_envs
+
+mkdir /vol/csedu-nobackup/project/sdejong/jp_venv
+ln -s /vol/csedu-nobackup/project/sdejong/jp_venv jp_venv
+
+virtualenv -p /usr/bin/python3.10 jp_venv/
+. jp_venv/bin/activate
+
+
+mkdir /vol/csedu-nobackup/project/sdejong/miniconda
+ln -s /vol/csedu-nobackup/project/sdejong/miniconda miniconda
+/home/sdejong/miniconda/miniconda3
+
+
+ssh -L 8080:cn77:8080 sdejong@cn99.science.ru.nl
+
+
+srun -A cseduproject -p csedu -c 2 --mem 10G -t 3:00:00 --pty bash
+
+git clone --recurse-submodules https://github.com/ArcInstitute/evo2.githttps://github.com/ArcInstitute/evo2.git
+
+git config --global user.name "SteffenJong"
+git config --global user.email steffendej@gmail.com
+
+ssh-keygen -t ed25519 -C "steffendej@gmail.com"
