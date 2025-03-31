@@ -1,0 +1,7 @@
+mv ~/.cache/* v
+ln -s /lustre/BIF/nobackup/jong505/.cache /.cache
+
+mkdir /lustre/BIF/nobackup/jong505/conda
+ln -s /lustre/BIF/nobackup/jong505/conda conda
+
+/home/jong505/conda/miniconda3

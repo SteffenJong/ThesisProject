@@ -1,0 +1,1 @@
+['/home/jong505/thesis/evo2_scripts', '/home/jong505/conda/miniconda3/envs/evo2/lib/python311.zip', '/home/jong505/conda/miniconda3/envs/evo2/lib/python3.11', '/home/jong505/conda/miniconda3/envs/evo2/lib/python3.11/lib-dynload', '/home/jong505/conda/miniconda3/envs/evo2/lib/python3.11/site-packages', '/home/jong505/thesis/evo2/vortex/vortex/ops/attn']
