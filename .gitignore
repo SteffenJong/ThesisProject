@@ -1,1 +1,6 @@
 /evo2
+.ipynb*
+ath*
+bol*
+logs*
+*.tsv
