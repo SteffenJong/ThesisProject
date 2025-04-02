@@ -7,9 +7,7 @@
 #SBATCH --output=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.out
 #SBATCH --error=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.err
 
-source /home/sdejong/.bashrc
-source activate jp
-cd /home/sdejong/thesis/iadh
-python collect_results_iadh.py --iadhdir ath_bol \
---annofiles annotation.all_transcripts.ath.tsv annotation.all_transcripts.bol.tsv \
---output IADH_results.tsv
+cd /home/jong505/thesis/iadh
+python collect_results_iadh.py --iadhdir iadh_out/ath_bol \
+--annofiles data/annotation.all_transcripts.ath.csv.gz data/annotation.all_transcripts.bol.csv.gz \
+--output iadh_out/ath_bol/merged_results.tsv

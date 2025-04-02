@@ -24,7 +24,7 @@ def add_genes(df, folder):
     merged_df.rename(columns={'first': 'first_y', 'last': 'last_y'}, inplace=True)
     return merged_df
 
-def add_start_stop(df, anno_files):
+def add_start_stop(df, anno_files, decompress):
     names = ["gene_id",	"species", "transcript", "coord_cds", "start", "stop", "coord_transcript", "seq", "strand", "chr", "type", "check_transcript", "check_protein", "transl_table"]
     
     df["start_x"] = pd.NA
@@ -34,7 +34,10 @@ def add_start_stop(df, anno_files):
     merged_df = df.copy()
 
     for file in anno_files:
-        anno = pd.read_csv(file,  sep="\t", skiprows = 9, names=names)
+        if decompress:
+            anno = pd.read_csv(file, compression='gzip', sep="\t", skiprows = 9, names=names)
+        else:    
+            anno = pd.read_csv(file, sep="\t", skiprows = 9, names=names)
         anno = anno.drop_duplicates(subset=['gene_id'], keep='first')
 
         merged_df = pd.merge(
@@ -89,6 +92,7 @@ if __name__ == "__main__":
     parser.add_argument("--iadhdir", type=str)
     parser.add_argument('--annofiles', nargs='+')
     parser.add_argument("--output", type=str, default="IADH_results.tsv")
+    parser.add_argument("--decompress", type=bool, default=True)
     
     args = parser.parse_args()
 
@@ -96,11 +100,12 @@ if __name__ == "__main__":
     output = Path(args.output)
     annofiles = [Path(f) for f in args.annofiles]
 
+    print("reading csv")
     mp = pd.read_csv(iadhdir/"multiplicons.txt", sep="\t", header=0)
-    print(mp.columns)
+    print("adding genes")
     df = add_genes(mp, iadhdir)
-    print(df.columns)
-    df = add_start_stop(df, annofiles)
-    print(df.columns)
+    print("adding start stop")
+    df = add_start_stop(df, annofiles, args.decompress)
+    print("write to csv")
     df.to_csv(output, sep='\t')
 
