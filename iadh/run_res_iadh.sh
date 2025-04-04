@@ -8,6 +8,6 @@
 #SBATCH --error=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.err
 
 cd /home/jong505/thesis/iadh
-python collect_results_iadh.py --iadhdir iadh_out/ath_bol \
---annofiles data/annotation.all_transcripts.ath.csv.gz data/annotation.all_transcripts.bol.csv.gz \
---output iadh_out/ath_bol/merged_results.tsv
+python collect_results_iadh.py --iadhdir iadh_out/ath_bol_aar \
+--annofiles data/annotation.all_transcripts.ath.csv.gz data/annotation.all_transcripts.bol.csv.gz data/annotation.all_transcripts.aar.csv.gz \
+--output iadh_out/ath_bol_aar/merged_results.tsv

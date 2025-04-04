@@ -87,6 +87,20 @@ def add_start_stop(df, anno_files, decompress):
 
     return merged_df
 
+def add_extra_collums(df):
+    df[["start_x","stop_x", "start_y", "stop_y"]] = df[["start_x","stop_x", "start_y", "stop_y"]].apply(pd.to_numeric)
+
+    df["len_x"] =  df["stop_x"] - df["start_x"]
+    df["len_y"] =  df["stop_y"] - df["start_y"]
+
+    df["len_profile_x"] = df["end_x"] - df["begin_x"]+1
+    df["len_profile_y"] = df["end_y"] - df["begin_y"]+1
+    df["max_profile_length"] = df[["len_profile_x", "len_profile_y"]].max(axis=1)
+
+    df["percentage_similar"] = df["number_of_anchorpoints"] / df["max_profile_length"]
+    return df
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Huh')
     parser.add_argument("--iadhdir", type=str)
@@ -106,6 +120,8 @@ if __name__ == "__main__":
     df = add_genes(mp, iadhdir)
     print("adding start stop")
     df = add_start_stop(df, annofiles, args.decompress)
-    print("write to csv")
-    df.to_csv(output, sep='\t')
+    print("adding some collums")
+    df = add_extra_collums(df)
+    print(f"writing to {output}")
+    df.to_csv(output, sep='\t', index=False)
 

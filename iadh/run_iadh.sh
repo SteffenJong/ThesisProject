@@ -8,4 +8,4 @@
 #SBATCH --error=/home/sdejong/thesis/iadh/logs/run_iadh-%j.err
 
 cd /home/sdejong/thesis/iadh
-i-adhore ath_bol.ini
+i-adhore ath_bol_aar.ini
