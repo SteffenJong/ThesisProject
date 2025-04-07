@@ -1,7 +1,9 @@
 /evo2
 .ipynb*
-ath*
-bol*
 logs*
 *.tsv
-iadh/data
+**.gz
+**.csv
+**.tsv
+**.lst
+/iadh/iadh_out/
