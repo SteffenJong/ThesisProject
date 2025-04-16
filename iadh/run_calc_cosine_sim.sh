@@ -8,4 +8,4 @@
 #SBATCH --error=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.err
 
 cd /home/jong505/thesis/iadh
-python calc_cosine.py --train_test iadh_out/ath_bol_aar/train_test1.tsv --output iadh_out/ath_bol_aar/train_test_sim_row.tsv
+python calc_cosine.py --train_test iadh_out/ath_bol_aar/train_test2.tsv --output iadh_out/ath_bol_aar/train_test_sim_row2.tsv

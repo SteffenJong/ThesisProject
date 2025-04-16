@@ -5,16 +5,16 @@ import pandas as pd
 import gzip
 from Bio import SeqIO
 
-
 def create_train_df(merged: pd.DataFrame, refseq: list, output_path: Path):
     #output dict.
     output = {}
     # loop trough reference sequences.
+    counter = 0
     for file in refseq:
         #open refseq 
         with gzip.open(file, "rt") as f:
             # loop trough files in refseq (wich are mostly chromosones).
-            for record in tqdm(SeqIO.parse(f, format="fasta"), desc=f"Collecting sequences from{file}"):
+            for record in tqdm(SeqIO.parse(f, format="fasta"), desc=f"Collecting sequences from {file}"):
                 # get the name of the current name of the refseq (Wich genome we are looking at).
                 file_name = file.stem.split(".")[0]
                 # get the name of the current file in the refseq (Wich chromosone we are looking at).
@@ -32,11 +32,28 @@ def create_train_df(merged: pd.DataFrame, refseq: list, output_path: Path):
                         x_y = i.split("_")[1]
                         # check if the current (iadh) segment is from the correct chromosone that we have opend right now.
                         if r[f"list_{x_y}"] == chr_name:
-                            # see if a dict already exists for the current id(indx), if so we update it, if not we create the id and write the inital data.
+
+                            # print(r["id"])
+                            # if chr_name == "sc-43":
+                            #     print(r["id"])
+
+
+                            if r["id"] == 4053:
+                                print("writing")
+                                with open("test.fasta", "w+") as f:
+                                    f.write(str(record.seq[r[f"start_{x_y}"]:r[f"stop_{x_y}"]]))
+
+                                print(r["id"])
+                                print({f"genome_{x_y}": r[f"genome_{x_y}"],
+                                       f"chr_{x_y}": r[f"list_{x_y}"],
+                                       f"len_profile_{x_y}": r[f"len_profile_{x_y}"],
+                                       f"seq_{x_y}": [r[f"start_{x_y}"], r[f"stop_{x_y}"]] })
+
                             output.setdefault(r["id"], {}).update({f"genome_{x_y}": r[f"genome_{x_y}"],
                                                                 f"chr_{x_y}": r[f"list_{x_y}"],
                                                                 f"len_profile_{x_y}": r[f"len_profile_{x_y}"],
-                                                                f"seq_{x_y}": str(record.seq[r[f"start_{x_y}"]-1:r[f"stop_{x_y}"]])})      
+                                                                f"seq_{x_y}": str(record.seq[r[f"start_{x_y}"]:r[f"stop_{x_y}"]])})
+                
     return pd.DataFrame.from_dict(output, orient='index')[["genome_x", "chr_x", "len_profile_x", "genome_y", "chr_y", "len_profile_y", "seq_x", "seq_y"]]
 
 
@@ -74,10 +91,10 @@ def filter_df(merged, seg_len):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Huh')
-    parser.add_argument("--merged_iadh_tsv", type=str)
-    parser.add_argument('--refseqs', nargs='+')
-    parser.add_argument('--segment_length', type=int)
-    parser.add_argument('--output', type=str)
+    parser.add_argument("--merged_iadh_tsv", type=str, default="iadh_out/ath_bol_aar/merged_results.tsv")
+    parser.add_argument('--refseqs', nargs='+', default=["data/ath.fasta.gz", "data/aar.fasta.gz", "data/bol.fasta.gz"])
+    parser.add_argument('--segment_length', type=int, default=7)
+    parser.add_argument('--output', type=str, default="iadh_out/ath_bol_aar/train_test_debugging.tsv")
 
     args = parser.parse_args()
 
