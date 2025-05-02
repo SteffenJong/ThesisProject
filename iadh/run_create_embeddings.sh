@@ -8,7 +8,4 @@
 #SBATCH --error=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.err
 
 cd /home/jong505/thesis/iadh
-python create_training_tsv.py --merged_iadh_tsv iadh_out/ath_bol_aar/merged_results1.tsv \
---refseqs data/ath.fasta.gz data/aar.fasta.gz data/bol.fasta.gz \
---segment_length 7 \
---output iadh_out/ath_bol_aar/train_test_sim_orientation.tsv
+python create_embeddings.py --train_test iadh_out/ath_bol_aar/simple_train_test_randomandsim.tsv --output iadh_out/ath_bol_aar/emebddings_blocks_24_mlp_l3_sttras_30_A0.tsv

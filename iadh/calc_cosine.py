@@ -27,15 +27,16 @@ def main(df: pd.DataFrame, l_name):
     print(f"sim is {len(df.iloc[0]['seq_x']) == len(df.iloc[0]['seq_y'])}")
     sim = []
     sim_row = []
+    sim_avg = []
 
     for _, r in tqdm(df.iterrows(), total=df.shape[0]):
         seq_x = r["seq_x"]
         seq_y =  r["seq_y"]
-        print(torch.cuda.memory_reserved(0))
-        print(torch.cuda.memory_allocated(0))
-        print(len(seq_x))
+        # print(torch.cuda.memory_reserved(0))
+        # print(torch.cuda.memory_allocated(0))
+        # print(len(seq_x))
         
-        tok_x = torch.tensor( evo2_model.tokenizer.tokenize(seq_x), dtype=torch.int, ).unsqueeze(0).to('cuda:0')
+        tok_x = torch.tensor(evo2_model.tokenizer.tokenize(seq_x), dtype=torch.int, ).unsqueeze(0).to('cuda:0')
         _, tens_x = evo2_model(tok_x, return_embeddings=True, layer_names=[l_name])
         x = tens_x[l_name].cpu().float().numpy()
 
@@ -45,9 +46,16 @@ def main(df: pd.DataFrame, l_name):
         
         sim.append(np.dot(x.ravel(),y.ravel())/(np.linalg.norm(x.ravel())*np.linalg.norm(y.ravel())))
         sim_row.append((np.sum(x * y, axis=1) / (np.linalg.norm(x, axis=1) * np.linalg.norm(y, axis=1))).mean())
+        
+        # print(x.shape)
+        x_mean = np.mean(x[0], axis=1)
+        y_mean = np.mean(y[0], axis=1)
+        # print(x_mean.shape)
+        sim_avg.append( np.dot(x_mean, y_mean)/ (np.linalg.norm(x_mean) * np.linalg.norm(y_mean)) )
 
     df["cosine_sim"] = sim
     df["cosine_sim_row"] = sim_row
+    df["cosine_sim_avg"] = sim_avg
     return df
 
 def add_padding(row:pd.Series, pad_char:str= "0"):
@@ -70,7 +78,8 @@ if __name__ == "__main__":
     df = pd.read_csv(input, sep="\t", header=0)
 
     small_df = df.sample(n=100, random_state=42)
-    print(small_df.value_counts("Similar"))
+    print(df.value_counts("similar"))
 
-    small_df_sim = main(small_df, l_name)
-    small_df_sim[["segment_id", "Similar", "cosine_sim", "cosine_sim_row", "genome_x", "chr_x", "len_profile_x", "genome_y", "chr_y", "len_profile_y", "seq_x", "seq_y"]].to_csv(output, sep='\t')
+    df = main(df, l_name)
+    # df[["segment_id", "Similar", "cosine_sim", "cosine_sim_row","cosine_sim_avg", "genome_x", "chr_x", "len_profile_x", "genome_y", "chr_y", "len_profile_y", "seq_x", "seq_y"]].to_csv(output, sep='\t')
+    df.to_csv(output, sep='\t')

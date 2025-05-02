@@ -5,24 +5,47 @@ import numpy as np
 
 def add_genes(df, folder):
     sg = pd.read_csv(folder/"segments.txt", sep="\t", header=0)
+    sg.rename(columns={'id': 'segment_id'}, inplace=True)
+
     merged_df = pd.merge(
-    df, sg[['first','last', "multiplicon", "genome"]][sg["order"]==0],
+    df, sg[['first','last', "multiplicon", "genome", "segment_id"]][sg["order"]==0],
     left_on=['id', 'genome_x'],
     right_on=['multiplicon', 'genome'],
     how='left'  
     )
     merged_df.drop(["multiplicon", "genome"], axis=1, inplace=True)
-    merged_df.rename(columns={'first': 'first_x', 'last': 'last_x'}, inplace=True)
+    merged_df.rename(columns={'first': 'first_x', 'last': 'last_x', "segment_id": "segment_id_x"}, inplace=True)
     
     merged_df = pd.merge(
-        merged_df, sg[['first','last', "multiplicon", "genome"]][sg["order"]==1],
+        merged_df, sg[['first','last', "multiplicon", "genome", "segment_id"]][sg["order"]==1],
         left_on=['id', 'genome_y'],
         right_on=['multiplicon', 'genome'],
         how='left'  
     )
     merged_df.drop(["multiplicon", "genome"], axis=1, inplace=True)
-    merged_df.rename(columns={'first': 'first_y', 'last': 'last_y'}, inplace=True)
+    merged_df.rename(columns={'first': 'first_y', 'last': 'last_y', "segment_id": "segment_id_y"}, inplace=True)
+    
+    le = pd.read_csv(folder/"list_elements.txt", sep="\t", header=0)
+    le_grouped = le.groupby("segment")[["gene", "orientation"]].agg(list).reset_index()
+
+    merged_df = pd.merge(merged_df, le_grouped, left_on="segment_id_x", right_on="segment", how="left")
+    merged_df.drop(["segment"], axis=1, inplace=True)
+    merged_df.rename(columns={'gene': 'genes_x', 'orientation': 'orientations_x'}, inplace=True)
+
+    merged_df = pd.merge(merged_df, le_grouped, left_on="segment_id_y", right_on="segment", how="left")
+    merged_df.drop(["segment"], axis=1, inplace=True)
+    merged_df.rename(columns={'gene': 'genes_y', 'orientation': 'orientations_y'}, inplace=True)
+
+    # merged_df["orientations_x"] = merged_df["orientations_x"].apply(eval)
+    # merged_df["orientations_y"] = merged_df["orientations_y"].apply(eval)
+    merged_df[["sim_orientations_x", "sim_orientations_y"]] = merged_df.apply(sim_orientation, axis=1)
+
     return merged_df
+
+def sim_orientation(s: pd.Series):
+    lx = s["orientations_x"]
+    ly = s["orientations_y"]
+    return pd.Series([max(lx.count("+"), lx.count("-")) / len(lx), max(ly.count("+"), ly.count("-")) / len(ly)])
 
 def add_start_stop(df, anno_files, decompress):
     names = ["gene_id",	"species", "transcript", "coord_cds", "start", "stop", "coord_transcript", "seq", "strand", "chr", "type", "check_transcript", "check_protein", "transl_table"]

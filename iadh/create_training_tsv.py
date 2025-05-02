@@ -4,6 +4,7 @@ from tqdm import tqdm
 import pandas as pd
 import gzip
 from Bio import SeqIO
+import math
 
 
 def create_train_df(merged: pd.DataFrame, refseq: list, output_path: Path):
@@ -54,16 +55,24 @@ def create_test_df(train_df: pd.DataFrame):
             print("Error group to small !")
             continue
         
+        print(group["seq_y"].duplicated().sum(),"-",(group.shape[0]/2))
+
+        if group["seq_y"].duplicated(keep=False).sum() > (group.shape[0]/2):
+            print("Error group to similar !")
+            continue
+
         shuffled_group = group.copy()
         same = True
         # shuffel everything till there are no same combinations as before
+
+
         while same:
             shuffled_values = shuffled_group[["genome_y", "chr_y", "len_profile_y", "seq_y"]].sample(frac=1, random_state=None).reset_index(drop=True)
             shuffled_group[["genome_y", "chr_y", "len_profile_y", "seq_y"]] = shuffled_values[["genome_y", "chr_y", "len_profile_y", "seq_y"]].values
             
             if shuffled_group[shuffled_group["seq_y"] == group["seq_y"]]["seq_y"].notna().sum() == 0:
-                same = False 
-
+                same = False
+            
         shuffled_parts.append(shuffled_group)
 
     return pd.concat(shuffled_parts).sort_values("og_index").drop(columns="og_index")
@@ -86,14 +95,18 @@ if __name__ == "__main__":
     seg_len = args.segment_length
     output_path = Path(args.output)
     filtered_df = filter_df(merged, seg_len)
+
+    # Only put samples in there that have the same orientation. 
+    filtered_df = filtered_df[ (filtered_df["sim_orientations_x"] >= 1) & (filtered_df["sim_orientations_y"] >= 1)]
+    
     train_df = create_train_df(filtered_df, refseq, output_path)
     print("Creating negative samples")
     test_df = create_test_df(train_df)
     train_df["segment_id"] = pd.to_numeric(train_df.index, downcast='integer')
     test_df["segment_id"] = pd.NA
-    train_df["Similar"] = True
-    test_df["Similar"] = False
+    train_df["similar"] = True
+    test_df["similar"] = False
     df = pd.concat([train_df, test_df], ignore_index=True)
     print(f"Writing output to {output_path}")
-    df[["segment_id", "Similar", "genome_x", "chr_x", "len_profile_x", "genome_y", "chr_y", "len_profile_y", "seq_x", "seq_y"]].to_csv(output_path, sep='\t')
+    df[["segment_id", "similar", "genome_x", "chr_x", "len_profile_x", "genome_y", "chr_y", "len_profile_y", "seq_x", "seq_y"]].to_csv(output_path, sep='\t')
     
