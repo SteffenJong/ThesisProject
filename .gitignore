@@ -6,4 +6,6 @@ logs*
 **.csv
 **.tsv
 **.lst
+/model/results/testing/
 /iadh/iadh_out/
+**__pycache__**

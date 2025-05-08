@@ -3,29 +3,33 @@ os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]="1"
 os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
 from time import time
-s = time()
 import argparse
 from pathlib import Path
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
-print(time()-s)
-
 print("importing torch")
-s = time()
 import torch
-print(time()-s)
 print("importing evo2")
-s = time()
 from evo2 import Evo2
-print(time()-s)
 
-def create_embeddings(df: pd.DataFrame, l_name):
+def create_embeddings(df: pd.DataFrame, l_name:str = "blocks.24.mlp.l3", axis=0):
+    """generate emebddings using evo2
+    The embeddings are averaged over the tokens, so all will have the same length.
+
+    Args:
+        df (pd.DataFrame): dataframe containing sequence pairs, can be gotten from create training tsv
+        l_name (str): layer name from wich to extract embeddings
+
+    Returns:
+        pd.Dataframe: tsv with embeddings
+    """
+
     evo2_model = Evo2('evo2_1b_base', local_path="/home/jong505/models/evo2_1b_base.pt")
     em_x = []
     em_y = []
 
-    df[["seq_x", "seq_y"]] = df.apply(add_padding, axis=1)
+    # df[["seq_x", "seq_y"]] = df.apply(add_padding, axis=1)
 
     for seq_x, seq_y in tqdm(zip(df.seq_x, df.seq_y), total=df.shape[0]):
 
@@ -37,8 +41,8 @@ def create_embeddings(df: pd.DataFrame, l_name):
         _, tens_y = evo2_model(tok_y, return_embeddings=True, layer_names=[l_name])
         y = tens_y[l_name].cpu().float().numpy()
         
-        em_x.append(np.mean(x[0], axis=0).tolist())
-        em_y.append(np.mean(y[0], axis=0).tolist())
+        em_x.append(np.mean(x[0], axis=axis).tolist())
+        em_y.append(np.mean(y[0], axis=axis).tolist())
 
     df_embeddings = df.drop(["seq_x", "seq_y"], axis=1)
     df_embeddings["em_x"] = em_x
