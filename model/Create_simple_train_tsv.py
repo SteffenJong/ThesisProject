@@ -91,10 +91,11 @@ def create_negatives(df: pd.DataFrame):
         df_selection = df_selection[~df_selection.index.isin(temp.index)]
         shuffeld[["seq_y", "gene_y"]] = temp[["seq_y", "gene_y"]].values
         groups.append(shuffeld)
+    df = pd.concat(groups)
+    df.insert(loc=3, column="similar", value=False)
+    return df
 
-    return pd.concat(groups)
-
-def create_similar_random(df):
+def create_not_similar_random(df):
     not_sim = df.copy()
     not_sim["gene_y"] = not_sim["gene_x"]
     not_sim["seq_y"] = not_sim.apply(random_seq, axis=1)
@@ -102,7 +103,7 @@ def create_similar_random(df):
     return not_sim
 
 
-def create_negatives_random(df):
+def create_random_similar(df):
     df["seq_y"] = df.apply(random_similar, axis=1)
     df.insert(loc=3, column="similar", value=True)
     return df
@@ -208,7 +209,7 @@ if __name__ == "__main__":
     parser.add_argument("--gene_fam", type=str, default="data/gene_fam_parsed.tsv")
     parser.add_argument('--refseqs', nargs='+', default=["data/annotation.all_transcripts.ath.csv.gz", "data/annotation.all_transcripts.bol.csv.gz", "data/annotation.all_transcripts.aar.csv.gz"])
     parser.add_argument('--output_prefix', type=str)
-    parser.add_argument('--output_prefix_raw', type=str, default=None)
+    parser.add_argument('--output_prefix_raw', type=str, default="")
     # not implemented yet 
     # parser.add_argument('--same_length', type=bool, default=False)
     # parser.add_argument('--save_raw_train_test', type=bool, default=False)
@@ -229,32 +230,29 @@ if __name__ == "__main__":
 
     df = get_gene_fam_per_gene(gene_fam, refseqs)
     df = create_similar_genes(df)
-    
-    if size_per_org:
-        grouped = df.groupby("")
 
-    df_sim = create_similar_random(df)
-    df_not_sim = create_negatives_random(df)
-    df = pd.concat([df_sim, df_not_sim]).reset_index(drop=True)
+    # df_not_sim = create_not_similar_random(df)
+    # df_sim = create_random_similar(df)
+    df_negatives = create_negatives(df)
+    df.insert(loc=3, column="similar", value=True)
 
-    mean = int((df.seq_y.apply(len).mean() + df.seq_x.apply(len).mean())/2)
-    df[["seq_x", "seq_y"]] = df.apply(crop_or_padd, length=mean, axis=1)
+    df = pd.concat([df, df_negatives]).reset_index(drop=True)
     
     train, test, val = create_train_test_val(df)
-    if output_prefix_raw:
+    if output_prefix_raw != "":
         train.to_csv(str(output_prefix_raw)+"_train_raw.tsv", sep="\t")
         test.to_csv(str(output_prefix_raw)+"_test_raw.tsv", sep="\t")
         val.to_csv(str(output_prefix_raw)+"_val_raw.tsv", sep="\t")
 
     print("generating trian embeddings")
-    train_em = create_embeddings(train, axis=1)
+    train_em = create_embeddings(train)
     train_em.to_csv(str(output_prefix)+"_train.tsv", sep="\t")
 
     print("generating test embeddings")
-    test_em = create_embeddings(test, axis=1)
-    train_em.to_csv(str(output_prefix)+"_test.tsv", sep="\t")
+    test_em = create_embeddings(test)
+    test_em.to_csv(str(output_prefix)+"_test.tsv", sep="\t")
 
     print("generating val embeddings")
-    val_em = create_embeddings(val, axis=1)
-    train_em.to_csv(str(output_prefix)+"_val.tsv", sep="\t")
+    val_em = create_embeddings(val)
+    val_em.to_csv(str(output_prefix)+"_val.tsv", sep="\t")
     

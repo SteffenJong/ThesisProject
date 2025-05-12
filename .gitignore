@@ -9,3 +9,4 @@ logs*
 /model/results/testing/
 /iadh/iadh_out/
 **__pycache__**
+model/saved_models

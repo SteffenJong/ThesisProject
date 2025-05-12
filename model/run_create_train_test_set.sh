@@ -1,14 +1,10 @@
-#!/bin/bash -e
-#SBATCH --partition=csedu
-#SBATCH --mem=15G
-#SBATCH --cpus-per-task=12
-#SBATCH --time=05:00:00
-#SBATCH --account=cseduproject
-#SBATCH --output=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.out
-#SBATCH --error=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.err
+data_p="/home/jong505/thesis/iadh/data"
 
-cd /home/jong505/thesis/iadh
-python create_training_tsv.py --merged_iadh_tsv iadh_out/ath_bol_aar/merged_results1.tsv \
---refseqs data/ath.fasta.gz data/aar.fasta.gz data/bol.fasta.gz \
---segment_length 7 \
---output iadh_out/ath_bol_aar/train_test_sim_orientation.tsv
+cd /home/jong505/thesis/model
+python create_training_tsv.py \
+    --merged_iadh_tsv /home/jong505/thesis/iadh/iadh_out/ath_bol_aar/merged_results1.tsv \
+    --refseqs "${data_p}/ath.fasta.gz" "${data_p}/aar.fasta.gz" "${data_p}/bol.fasta.gz" \
+    --segment_length 4 \
+    --output_prefix data/ath_bol_aar/sm4 \
+    --output_prefix_raw data/ath_bol_aar/sm4
+    

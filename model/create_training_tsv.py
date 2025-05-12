@@ -5,9 +5,11 @@ import pandas as pd
 import gzip
 from Bio import SeqIO
 import math
+from sklearn.model_selection import train_test_split
+from create_embeddings import create_embeddings
 
 
-def create_train_df(merged: pd.DataFrame, refseq: list, output_path: Path):
+def create_train_df(merged: pd.DataFrame, refseq: list):
     #output dict.
     output = {}
     # loop trough reference sequences.
@@ -77,6 +79,13 @@ def create_test_df(train_df: pd.DataFrame):
 
     return pd.concat(shuffled_parts).sort_values("og_index").drop(columns="og_index")
 
+def create_train_test_val(df):
+    x_index, x_val_index, _, _ = train_test_split(df.index, df.similar.astype(int).values, test_size=0.30, random_state=42)
+    df_val = df.iloc[x_val_index]
+    df = df.iloc[x_index].reset_index(drop=True)
+    x_train_index, x_test_index, _, _ = train_test_split(df.index, df.similar.astype(int).values, test_size=0.20, random_state=42)
+    return df.iloc[x_train_index], df.iloc[x_test_index], df_val
+
 def filter_df(merged, seg_len):
     df = pd.read_csv(merged, sep="\t", header=0)
     return df[(df["len_profile_x"]<=seg_len) & (df["len_profile_y"]<=seg_len) & (df["genome_x"] != df["genome_y"])]
@@ -86,20 +95,23 @@ if __name__ == "__main__":
     parser.add_argument("--merged_iadh_tsv", type=str)
     parser.add_argument('--refseqs', nargs='+')
     parser.add_argument('--segment_length', type=int)
-    parser.add_argument('--output', type=str)
+    parser.add_argument('--output_prefix', type=str)
+    parser.add_argument('--output_prefix_raw', type=str, default="")
+    
 
     args = parser.parse_args()
 
     merged = Path(args.merged_iadh_tsv)
     refseq = [Path(f) for f in args.refseqs]
     seg_len = args.segment_length
-    output_path = Path(args.output)
+    output_prefix = Path(args.output_prefix)
+    output_prefix_raw = Path(args.output_prefix_raw)
     filtered_df = filter_df(merged, seg_len)
 
     # Only put samples in there that have the same orientation. 
-    filtered_df = filtered_df[ (filtered_df["sim_orientations_x"] >= 1) & (filtered_df["sim_orientations_y"] >= 1)]
+    # filtered_df = filtered_df[ (filtered_df["sim_orientations_x"] >= 1) & (filtered_df["sim_orientations_y"] >= 1)]
     
-    train_df = create_train_df(filtered_df, refseq, output_path)
+    train_df = create_train_df(filtered_df, refseq, )
     print("Creating negative samples")
     test_df = create_test_df(train_df)
     train_df["segment_id"] = pd.to_numeric(train_df.index, downcast='integer')
@@ -107,6 +119,25 @@ if __name__ == "__main__":
     train_df["similar"] = True
     test_df["similar"] = False
     df = pd.concat([train_df, test_df], ignore_index=True)
-    print(f"Writing output to {output_path}")
-    df[["segment_id", "similar", "genome_x", "chr_x", "len_profile_x", "genome_y", "chr_y", "len_profile_y", "seq_x", "seq_y"]].to_csv(output_path, sep='\t')
+    # print(f"Writing output to {output_prefix}")
+    # df[["segment_id", "similar", "genome_x", "chr_x", "len_profile_x", "genome_y", "chr_y", "len_profile_y", "seq_x", "seq_y"]].to_csv(output_path, sep='\t')
+    
+    train, test, val = create_train_test_val(df)
+    print(f"shapes: train:{train.shape}, train:{test.shape}, train:{val.shape}")
+    if output_prefix_raw != "":
+        train.to_csv(str(output_prefix_raw)+"_train_raw.tsv", sep="\t")
+        test.to_csv(str(output_prefix_raw)+"_test_raw.tsv", sep="\t")
+        val.to_csv(str(output_prefix_raw)+"_val_raw.tsv", sep="\t")
+    
+    print(f"generating train embeddings")
+    train_em = create_embeddings(train)
+    train_em.to_csv(str(output_prefix)+"_train.tsv", sep="\t")
+
+    print(f"generating test embeddings")
+    test_em = create_embeddings(test)
+    test_em.to_csv(str(output_prefix)+"_test.tsv", sep="\t")
+
+    print(f"generating val embeddings ")
+    val_em = create_embeddings(val)
+    val_em.to_csv(str(output_prefix)+"_val.tsv", sep="\t")
     
