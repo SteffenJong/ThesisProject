@@ -14,7 +14,7 @@ from Create_simple_train_tsv import get_gene_fam_per_gene, create_similar_genes,
 
 def create_segment_2(df: pd.DataFrame):
     df.seq_x = df.seq_x.astype("string")
-    df.seq_y = df.seq_y.astype("string")
+    df.seq_y = df.seq_y.astype("string") 
 
     halfa = df.sample(frac=0.5,random_state=42)
     halfb = df[~df.index.isin(halfa.index)]
