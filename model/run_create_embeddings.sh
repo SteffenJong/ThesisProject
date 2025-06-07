@@ -7,5 +7,8 @@
 #SBATCH --output=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.out
 #SBATCH --error=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.err
 
-cd /home/jong505/thesis/iadh
-python create_embeddings.py --train_test iadh_out/ath_bol_aar/simple_train_test_randomandsim.tsv --output iadh_out/ath_bol_aar/emebddings_blocks_24_mlp_l3_sttras_30_A0.tsv
+cd /home/jong505/thesis/model
+python create_embeddings.py \
+    --dataframes "data/aar_ath_bol_chi_cpa_tha/sm7_50000_test_seq.tsv" "data/aar_ath_bol_chi_cpa_tha/sm7_50000_train_seq.tsv" "data/aar_ath_bol_chi_cpa_tha/sm7_50000_val_seq.tsv" \
+    --output_prefix data/aar_ath_bol_chi_cpa_tha/sm7_50000_div3_embeddings.tsv \
+    --output_prefix_raw data/aar_ath_bol_chi_cpa_tha/sm7_50000_div3

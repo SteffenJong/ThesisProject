@@ -6,7 +6,8 @@ logs*
 **.csv
 **.tsv
 **.lst
-/model/results/testing/
+**.png
+/model/results/
 /iadh/iadh_out/
 **__pycache__**
 model/saved_models

@@ -7,7 +7,7 @@ from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
 import random
-from create_embeddings import create_embeddings
+# from create_embeddings import create_embeddings
 import numpy as np
 from sklearn.model_selection import train_test_split
 

@@ -2,7 +2,7 @@
 out="setup.ini"
 > $out
 
-for folder in ath bol aar
+for folder in ath bol aar tha
 do
 echo "genome=${folder}" >> $out
 ls $folder > "${folder}_files.txt"

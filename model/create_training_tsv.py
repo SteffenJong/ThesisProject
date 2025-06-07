@@ -1,3 +1,7 @@
+import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
 import argparse
 from pathlib import Path
 from tqdm import tqdm
@@ -38,9 +42,11 @@ def create_train_df(merged: pd.DataFrame, refseq: list):
                             # see if a dict already exists for the current id(indx), if so we update it, if not we create the id and write the inital data.
                             output.setdefault(r["id"], {}).update({f"genome_{x_y}": r[f"genome_{x_y}"],
                                                                 f"chr_{x_y}": r[f"list_{x_y}"],
+                                                                f"segment_id_{x_y}": r[f"segment_id_{x_y}"],
                                                                 f"len_profile_{x_y}": r[f"len_profile_{x_y}"],
-                                                                f"seq_{x_y}": str(record.seq[r[f"start_{x_y}"]-1:r[f"stop_{x_y}"]])})      
-    return pd.DataFrame.from_dict(output, orient='index')[["genome_x", "chr_x", "len_profile_x", "genome_y", "chr_y", "len_profile_y", "seq_x", "seq_y"]]
+                                                                f"seq_{x_y}": str(record.seq[r[f"start_{x_y}"]-1:r[f"stop_{x_y}"]])})
+                            
+    return pd.DataFrame.from_dict(output, orient='index')[["genome_x", "chr_x", "len_profile_x", "segment_id_x", "genome_y", "chr_y", "len_profile_y", "segment_id_y", "seq_x", "seq_y"]]
 
 
 def create_test_df(train_df: pd.DataFrame):
@@ -69,14 +75,12 @@ def create_test_df(train_df: pd.DataFrame):
 
 
         while same:
-            shuffled_values = shuffled_group[["genome_y", "chr_y", "len_profile_y", "seq_y"]].sample(frac=1, random_state=None).reset_index(drop=True)
-            shuffled_group[["genome_y", "chr_y", "len_profile_y", "seq_y"]] = shuffled_values[["genome_y", "chr_y", "len_profile_y", "seq_y"]].values
+            shuffled_values = shuffled_group[["genome_y", "chr_y", "len_profile_y", "segment_id_y", "seq_y"]].sample(frac=1, random_state=None).reset_index(drop=True)
+            shuffled_group[["genome_y", "chr_y", "len_profile_y","segment_id_y", "seq_y"]] = shuffled_values[["genome_y", "chr_y", "len_profile_y","segment_id_y", "seq_y"]].values
             
             if shuffled_group[shuffled_group["seq_y"] == group["seq_y"]]["seq_y"].notna().sum() == 0:
                 same = False
-            
         shuffled_parts.append(shuffled_group)
-
     return pd.concat(shuffled_parts).sort_values("og_index").drop(columns="og_index")
 
 def create_train_test_val(df):
@@ -88,7 +92,9 @@ def create_train_test_val(df):
 
 def filter_df(merged, seg_len):
     df = pd.read_csv(merged, sep="\t", header=0)
-    return df[(df["len_profile_x"]<=seg_len) & (df["len_profile_y"]<=seg_len) & (df["genome_x"] != df["genome_y"])]
+    df = df[(df["len_profile_x"]<=seg_len) & (df["len_profile_y"]<=seg_len) & (df["genome_x"] != df["genome_y"])]
+    return df
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Huh')
@@ -96,8 +102,8 @@ if __name__ == "__main__":
     parser.add_argument('--refseqs', nargs='+')
     parser.add_argument('--segment_length', type=int)
     parser.add_argument('--output_prefix', type=str)
-    parser.add_argument('--output_prefix_raw', type=str, default="")
-    
+    parser.add_argument('--output_prefix_seq', type=str, default="")
+    parser.add_argument('--max_len_nuc', type=int, default=0)
 
     args = parser.parse_args()
 
@@ -105,17 +111,25 @@ if __name__ == "__main__":
     refseq = [Path(f) for f in args.refseqs]
     seg_len = args.segment_length
     output_prefix = Path(args.output_prefix)
-    output_prefix_raw = Path(args.output_prefix_raw)
+    output_prefix_seq = Path(args.output_prefix_seq)
+    len_nuc = args.max_len_nuc
     filtered_df = filter_df(merged, seg_len)
 
     # Only put samples in there that have the same orientation. 
     # filtered_df = filtered_df[ (filtered_df["sim_orientations_x"] >= 1) & (filtered_df["sim_orientations_y"] >= 1)]
     
-    train_df = create_train_df(filtered_df, refseq, )
+    train_df = create_train_df(filtered_df, refseq)
+    
+    if len_nuc != 0:
+        print(f"Filtering for max length of {len_nuc} nucliotides")
+        before = train_df.shape[0]
+        train_df = train_df[train_df.apply(lambda r: max(len(r['seq_x']), len(r['seq_y'])) < len_nuc, axis=1)]
+        print(f"Went fom {before} to {train_df.shape[0]} pairs")
+    
     print("Creating negative samples")
     test_df = create_test_df(train_df)
-    train_df["segment_id"] = pd.to_numeric(train_df.index, downcast='integer')
-    test_df["segment_id"] = pd.NA
+    train_df["multiplicon_id"] = pd.to_numeric(train_df.index, downcast='integer')
+    test_df["multiplicon_id"] = pd.NA
     train_df["similar"] = True
     test_df["similar"] = False
     df = pd.concat([train_df, test_df], ignore_index=True)
@@ -124,20 +138,32 @@ if __name__ == "__main__":
     
     train, test, val = create_train_test_val(df)
     print(f"shapes: train:{train.shape}, train:{test.shape}, train:{val.shape}")
-    if output_prefix_raw != "":
-        train.to_csv(str(output_prefix_raw)+"_train_raw.tsv", sep="\t")
-        test.to_csv(str(output_prefix_raw)+"_test_raw.tsv", sep="\t")
-        val.to_csv(str(output_prefix_raw)+"_val_raw.tsv", sep="\t")
-    
-    print(f"generating train embeddings")
-    train_em = create_embeddings(train)
-    train_em.to_csv(str(output_prefix)+"_train.tsv", sep="\t")
 
-    print(f"generating test embeddings")
-    test_em = create_embeddings(test)
-    test_em.to_csv(str(output_prefix)+"_test.tsv", sep="\t")
+    train.drop(columns=["seq_x", "seq_y"]).to_csv(str(output_prefix)+"_train.tsv", sep="\t")
+    test.drop(columns=["seq_x", "seq_y"]).to_csv(str(output_prefix)+"_test.tsv", sep="\t")
+    val.drop(columns=["seq_x", "seq_y"]).to_csv(str(output_prefix)+"_val.tsv", sep="\t")
 
-    print(f"generating val embeddings ")
-    val_em = create_embeddings(val)
-    val_em.to_csv(str(output_prefix)+"_val.tsv", sep="\t")
+
+    if output_prefix_seq != "":
+        train.to_csv(str(output_prefix_seq)+"_train_seq.tsv", sep="\t")
+        test.to_csv(str(output_prefix_seq)+"_test_seq.tsv", sep="\t")
+        val.to_csv(str(output_prefix_seq)+"_val_seq.tsv", sep="\t")
+
+    print("Generating embeddings")
+    embeddings = create_embeddings(df)
+    embeddings.to_csv(str(output_prefix_seq)+"_embeddings.tsv", sep="\t")
+
+    # print(f"generating train embeddings")
+    # train_em = create_embeddings(train)
+    # print(train_em.head())
+    # print(str(output_prefix)+"_train.tsv")
+    # train_em.to_csv(str(output_prefix)+"_train.tsv", sep="\t")
+
+    # print(f"generating test embeddings")
+    # test_em = create_embeddings(test)
+    # test_em.to_csv(str(output_prefix)+"_test.tsv", sep="\t")
+
+    # print(f"generating val embeddings ")
+    # val_em = create_embeddings(val)
+    # val_em.to_csv(str(output_prefix)+"_val.tsv", sep="\t")
     
