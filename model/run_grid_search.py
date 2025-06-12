@@ -294,21 +294,21 @@ def run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, resu
         model = modular_network(p["n_layers"], p["drop_out"])
 
         # print("Making train loader")
-        train_loader = make_dataloaders_old(input_path=train_seq_path, 
-                                        # embeddings=embeddings_path, 
+        train_loader = make_dataloaders(input_path=train_seq_path, 
+                                        embeddings=embeddings_path, 
                                         batch_size=p["batch_size"])
 
         # print("Making test loader")
-        test_loader = make_dataloaders_old(input_path=val_seq_path, 
-                                        # embeddings=embeddings_path, 
+        test_loader = make_dataloaders(input_path=test_seq_path, 
+                                        embeddings=embeddings_path, 
                                         batch_size=p["batch_size"])
         
         model, history, best_l, epoch = train_model(model, epochs, train_loader, test_loader, verbose=False, device=device)
         model.eval()
         
         # print("Making val loader")
-        val_loader = make_dataloaders_old(input_path=test_seq_path, 
-                                        #   embeddings=embeddings_path, 
+        val_loader = make_dataloaders(input_path=val_seq_path, 
+                                          embeddings=embeddings_path, 
                                           batch_size=p["batch_size"])
         pred, labels = run_validation(model, val_loader, device=device)
         
@@ -366,6 +366,7 @@ if __name__ == "__main__":
     prefix = Path(args.prefix)
     epochs = args.max_epochs
     device = args.device
+    print(f"running on {device}")
 
     parm_grid = {
         "batch_size": [int(f) for f in args.batches],
@@ -374,8 +375,8 @@ if __name__ == "__main__":
         }
 
     train_seq_path = Path(f"{prefix}_train.tsv" )
-    val_seq_path = Path(f"{prefix}_test.tsv" )
-    test_seq_path = Path(f"{prefix}_val.tsv" )
+    test_seq_path = Path(f"{prefix}_test.tsv" )
+    val_seq_path = Path(f"{prefix}_val.tsv" )
 
     results_folder = Path(f"results/{prefix.stem}")
     if not results_folder.is_dir():
