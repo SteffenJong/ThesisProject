@@ -8,12 +8,12 @@ class simple_network(nn.Module):
         super().__init__()
         self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(3840, 512),
+            nn.Linear(11520, 1024),
             nn.ReLU(),
-            nn.LayerNorm(512),
+            nn.LayerNorm(1024),
             nn.Dropout(0.3),
 
-            nn.Linear(512, 512),
+            nn.Linear(1024, 512),
             nn.ReLU(),
             nn.LayerNorm(512),
             nn.Dropout(0.3),
@@ -131,3 +131,36 @@ class mini_network(nn.Module):
         # x = self.flatten(x)
         logits = self.linear_relu_stack(x)
         return logits
+
+class modular_network(nn.Module):
+    def __init__(self, n_layers, drop_out):
+        super().__init__()
+        layers = []
+        start_hidden_size = 1024
+        hidden_size = [3840]
+        for i in range(n_layers):
+            hidden_size.append(start_hidden_size)
+            start_hidden_size = int(start_hidden_size/2)
+        # print(hidden_size)
+        
+        for i in range(n_layers):
+            layers.append(nn.Linear(hidden_size[i], hidden_size[i+1]))
+            # print(f"{hidden_size[i]} -> {hidden_size[i+1]}")
+            layers.append(nn.ReLU())
+            layers.append(nn.BatchNorm1d(hidden_size[i+1]))
+            layers.append(nn.Dropout(drop_out))
+        
+        # print(f"Last: {hidden_size[-1]} -> 1")
+        layers.append(nn.Linear(hidden_size[-1], 1))
+        layers.append(nn.Sigmoid())
+
+        self.linear_relu_stack = nn.Sequential(*layers).apply(self.init_weights)
+
+    def init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.01)
+
+    def forward(self, x):
+        net = self.linear_relu_stack(x)
+        return net
