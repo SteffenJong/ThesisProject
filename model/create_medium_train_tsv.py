@@ -25,6 +25,7 @@ def create_segment_2(df: pd.DataFrame, flip=True):
     halfa.reset_index(inplace=True)
     halfa.rename(columns={"index":'segment_id_y'}, inplace=True)
     df = pd.concat([halfa, halfb], axis=1)
+    
     if flip:
         df1 = df.sample(frac=0.5,random_state=42)
         df2 = df[~df.index.isin(halfa.index)]

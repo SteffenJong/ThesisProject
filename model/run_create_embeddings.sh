@@ -9,6 +9,5 @@
 
 cd /home/jong505/thesis/model
 python create_embeddings.py \
-    --dataframes "data/aar_ath_bol_chi_cpa_tha/sm7_50000_test_seq.tsv" "data/aar_ath_bol_chi_cpa_tha/sm7_50000_train_seq.tsv" "data/aar_ath_bol_chi_cpa_tha/sm7_50000_val_seq.tsv" \
-    --output_prefix data/aar_ath_bol_chi_cpa_tha/sm7_50000_div3_embeddings.tsv \
-    --output_prefix_raw data/aar_ath_bol_chi_cpa_tha/sm7_50000_div3
+    --dataframes "data/aar_ath_bol_chi_cpa_tha/medium_2g_500_test.tsv" "data/aar_ath_bol_chi_cpa_tha/medium_2g_500_train.tsv" "data/aar_ath_bol_chi_cpa_tha/medium_2g_500_val.tsv" \
+    --output data/aar_ath_bol_chi_cpa_tha/medium_2g_500_pca_embeddings.tsv 

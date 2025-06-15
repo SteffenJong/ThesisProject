@@ -281,7 +281,7 @@ def make_dataloaders_old(input_path, batch_size, sample=None, v=False):
         )
     return dl
 
-def run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, results_folder, saved_models_folder, results_file, embeddings_path, device):
+def run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, results_folder, saved_models_folder, results_file, embeddings_path, device, input_size):
     best_model_name = Path("")
     best_model_auc = 0
     res = []
@@ -291,7 +291,7 @@ def run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, resu
         output_suffix = f"{prefix.stem}{ ''.join([f'_{k[0]}_{v}' for k, v in p.items()])}"
         output_prefix = results_folder / output_suffix
         checkpoint_path = saved_models_folder / output_suffix
-        model = modular_network(p["n_layers"], p["drop_out"])
+        model = modular_network(p["n_layers"], p["drop_out"], input_size=input_size)
 
         # print("Making train loader")
         train_loader = make_dataloaders(input_path=train_seq_path, 
@@ -361,11 +361,15 @@ if __name__ == "__main__":
     parser.add_argument('--dropout', nargs='+', default=[0.1, 0.3, 0.5])
     parser.add_argument("--max_epochs", type=int, default=1000)
     parser.add_argument('--device', type=str, default="cpu")
+    parser.add_argument('--input_size', type=int, default=3840)
+    parser.add_argument("--em_type", type=str, default="avg")
 
     args = parser.parse_args()
     prefix = Path(args.prefix)
     epochs = args.max_epochs
     device = args.device
+    input_size = args.input_size
+    em_type = args.em_type
     print(f"running on {device}")
 
     parm_grid = {
@@ -378,18 +382,18 @@ if __name__ == "__main__":
     test_seq_path = Path(f"{prefix}_test.tsv" )
     val_seq_path = Path(f"{prefix}_val.tsv" )
 
-    results_folder = Path(f"results/{prefix.stem}")
+    results_folder = Path(f"results/{prefix.stem}_{em_type}")
     if not results_folder.is_dir():
         results_folder.mkdir()
 
-    saved_models_folder = Path(f"saved_models/{prefix.stem}")
+    saved_models_folder = Path(f"saved_models/{prefix.stem}_{em_type}")
     if not saved_models_folder.is_dir():
         saved_models_folder.mkdir()
 
-    results_file = results_folder / Path(f"{prefix.stem}_gridsearch_results.tsv")
-    embeddings_path = Path(f"{prefix}_embeddings.tsv")
+    results_file = results_folder / Path(f"{prefix.stem}_{em_type}_gridsearch_results.tsv")
+    embeddings_path = Path(f"{prefix}_{em_type}_embeddings.tsv")
 
-    df = run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, results_folder, saved_models_folder, results_file, embeddings_path, device)
+    df = run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, results_folder, saved_models_folder, results_file, embeddings_path, device, input_size=input_size)
     plot_best(df, test_seq_path, embeddings_path, results_folder, device)
 
     

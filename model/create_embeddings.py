@@ -105,5 +105,5 @@ if __name__ == "__main__":
     
     dataframes = [pd.read_csv(Path(df_path), sep="\t", header=0) for df_path in args.dataframes]
     df = pd.concat(dataframes)
-    df = create_embeddings(df, reduction="div3")
-    df.to_csv(output, sep="\t", compression="gzip")
+    df = create_embeddings(df, reduction="PCA")
+    df.to_csv(output, sep="\t")
