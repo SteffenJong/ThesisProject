@@ -48,8 +48,81 @@ def create_train_df(merged: pd.DataFrame, refseq: list):
                             
     return pd.DataFrame.from_dict(output, orient='index')[["genome_x", "chr_x", "len_profile_x", "segment_id_x", "genome_y", "chr_y", "len_profile_y", "segment_id_y", "seq_x", "seq_y"]]
 
+def create_negative_samples(df, gene_fam_path, list_elements):
+    gene_fam = pd.read_csv(gene_fam_path, sep="\t", header=None,  names=['gene', 'fam'])
+    list_elements = pd.read_csv(list_elements, sep='\t', header=0)
+    # create series that can be used to map segment to gene
+    segment_to_gene = list_elements.set_index("segment")["gene"]
+    # aggregate from:
+    # seg1: g1
+    # seg1: g2
+    # to: seg1: [g1, g2]
+    segment_to_gene = segment_to_gene.groupby("segment").agg(list)
+    # add collumn named gene_x in wich we use the segment id to look up what genes are in the segment using segment_to_gene
+    df = df.assign(genes_x=lambda df: df["segment_id_x"].map(segment_to_gene))
+    df = df.assign(genes_y=lambda df: df["segment_id_y"].map(segment_to_gene))
+    df = genes_to_fam(df, gene_fam)
 
-def create_test_df(train_df: pd.DataFrame):
+    # df_c = df.copy()
+    same = True
+
+    shuffled_df = df.copy().reset_index(drop=True)
+    # display(shuffled_df.head())
+    limit = 5000
+    counter = 0
+    lowest = 99999999999999
+    best = ""
+    while same:
+        if counter>= limit:
+            print("exeeded limt, failed to find new shuffel")
+            same=False
+        counter+=1
+        
+        shuffled_df[["genome_y", "chr_y", "len_profile_y", "segment_id_y", "seq_y", "fams_y"]] = df[["genome_y", "chr_y", "len_profile_y", "segment_id_y", "seq_y", "fams_y"]].sample(frac=1, random_state=None).reset_index(drop=True)
+        
+        shuffled_df["sim"] = [bool(set(x) & set(y)) for x, y in zip(shuffled_df["fams_x"], shuffled_df["fams_y"])]
+        if shuffled_df.sim.sum()< lowest:
+            best = shuffled_df.copy()
+            lowest = shuffled_df.sim.sum()
+
+        if True not in [bool(set(x) & set(y)) for x, y in zip(df["fams_x"], shuffled_df["fams_y"])]:
+            return shuffled_df
+        
+        # shuffled_df[shuffled_df.sim][["genome_y", "chr_y", "len_profile_y", "segment_id_y", "seq_y", "fams_y"]] = shuffled_df[shuffled_df.sim][["genome_y", "chr_y", "len_profile_y", "segment_id_y", "seq_y", "fams_y"]].sample(frac=1, random_state=None)
+
+    print(f"dropping {best.sim.sum()} samples because of sim")
+    return best[~best.sim]
+
+def genes_to_fam(df, gene_fam):
+    # create series to map gene to fam
+    gene_to_fam = gene_fam.set_index("gene")["fam"]
+    df_x = (
+        df[["genes_x"]]
+        # instead of having i1: [g1, g2 etc] we go to
+        # i1: g1
+        # i1: g2
+        .explode("genes_x")
+        # add column fam for wich we map gene_x using gene to fam
+        .assign(fam=lambda df: df["genes_x"].map(gene_to_fam))
+        # undo the explode
+        .groupby(level=0)["fam"]
+        # turn every group by section into list
+        .agg(list)
+        # rename colum fam
+        .rename("fams_x")
+    )
+
+    df_y = (
+        df[["genes_y"]]
+        .explode("genes_y")
+        .assign(fam=lambda df: df["genes_y"].map(gene_to_fam))
+        .groupby(level=0)["fam"]
+        .agg(list)
+        .rename("fams_y")
+    )
+    return df.join([df_x, df_y])
+
+def create_test_df_og(train_df: pd.DataFrame):
     df_c = train_df.copy() 
     df_c["og_index"] = df_c.index
 
@@ -80,6 +153,7 @@ def create_test_df(train_df: pd.DataFrame):
             
             if shuffled_group[shuffled_group["seq_y"] == group["seq_y"]]["seq_y"].notna().sum() == 0:
                 same = False
+            
         shuffled_parts.append(shuffled_group)
     return pd.concat(shuffled_parts).sort_values("og_index").drop(columns="og_index")
 
@@ -104,6 +178,8 @@ if __name__ == "__main__":
     parser.add_argument('--output_prefix', type=str)
     parser.add_argument('--output_prefix_seq', type=str, default="")
     parser.add_argument('--max_len_nuc', type=int, default=0)
+    parser.add_argument('--gene_fam', type=str)
+    parser.add_argument('--list_elements', type=str)
 
     args = parser.parse_args()
 
@@ -113,6 +189,8 @@ if __name__ == "__main__":
     output_prefix = Path(args.output_prefix)
     output_prefix_seq = Path(args.output_prefix_seq)
     len_nuc = args.max_len_nuc
+    gene_fam_path = args.gene_fam
+    list_elements_path = args.list_elements
     filtered_df = filter_df(merged, seg_len)
 
     # Only put samples in there that have the same orientation. 
@@ -127,7 +205,10 @@ if __name__ == "__main__":
         print(f"Went fom {before} to {train_df.shape[0]} pairs")
     
     print("Creating negative samples")
-    test_df = create_test_df(train_df)
+    # test_df = create_test_df(train_df)
+    test_df = create_negative_samples(train_df, gene_fam_path, list_elements_path)
+
+
     train_df["multiplicon_id"] = pd.to_numeric(train_df.index, downcast='integer')
     test_df["multiplicon_id"] = pd.NA
     train_df["similar"] = True

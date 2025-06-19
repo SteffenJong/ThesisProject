@@ -8,6 +8,11 @@
 #SBATCH --error=/home/sdejong/thesis/iadh/logs/run_res_iadh-%j.err
 
 cd /home/jong505/thesis/model
+
 python create_embeddings.py \
-    --dataframes "data/aar_ath_bol_chi_cpa_tha/medium_2g_500_test.tsv" "data/aar_ath_bol_chi_cpa_tha/medium_2g_500_train.tsv" "data/aar_ath_bol_chi_cpa_tha/medium_2g_500_val.tsv" \
-    --output data/aar_ath_bol_chi_cpa_tha/medium_2g_500_pca_embeddings.tsv 
+    --dataframes "data/aar_ath_bol_chi_cpa_tha/sm7_50000_new_neg_train.tsv" "data/aar_ath_bol_chi_cpa_tha/sm7_50000_new_neg_test.tsv" "data/aar_ath_bol_chi_cpa_tha/sm7_50000_new_neg_val.tsv" \
+    --output data/aar_ath_bol_chi_cpa_tha/msm7_50000_new_neg_pca_embeddings.tsv 
+
+# python create_embeddings.py \
+#     --dataframes "data/aar_ath_bol_chi_cpa_tha/medium_2g_500_test.tsv" "data/aar_ath_bol_chi_cpa_tha/medium_2g_500_train.tsv" "data/aar_ath_bol_chi_cpa_tha/medium_2g_500_val.tsv" \
+#     --output data/aar_ath_bol_chi_cpa_tha/medium_2g_500_pca_embeddings.tsv 

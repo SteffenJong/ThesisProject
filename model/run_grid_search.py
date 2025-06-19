@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 sns.set_theme()
 import numpy as np
+print("importing torch")
 import torch
 from torch import nn
 import torch.optim.adam
@@ -17,7 +18,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from sklearn.model_selection import ParameterGrid
 from gzip import BadGzipFile
 from models import modular_network
-
+print("done with the imports")
 
 def train_model(model, epochs, train_dataloader, test_dataloader, loss_fn= nn.BCELoss(), optimizer = torch.optim.Adam, device = "cuda:0", verbose=False):
     
@@ -156,24 +157,25 @@ def plot_auc(preds, labels, out, title=""):
     plt.title(title)
     plt.xlabel("False postive rate")
     plt.ylabel("True postive rate")
-    plt.savefig(out/"auc_val.png", dpi=300)
+    plt.savefig(out/"auc_val_gridsearch.png", dpi=300)
     plt.show()
     plt.clf()
     return auc
 
-def plot_history(df, out, title=""):
-    plt.clf()
-    plt.figure()
-    sns.set_theme()
+def plot_history(df, out=None, title=""):
     plt.figure()
     lp = sns.lineplot(data=df, x="epoch", y="accuracy", hue="phase")
     lp.set_title(title)
-    lp.figure.savefig(out/"accuracy.png",bbox_inches='tight')
+    if not out:
+        lp.figure.savefig(str(out)+"_accuracy_grid_search.png")
+    plt.show()
 
     plt.figure()
     lp = sns.lineplot(data=df, x="epoch", y="loss", hue="phase")
     lp.set_title(title)
-    lp.figure.savefig(out/"loss.png",bbox_inches='tight')
+    if not out: 
+        lp.figure.savefig(str(out)+"_loss_grid_search.png")
+    plt.show()
     
 
 def make_dataloaders_old(input, batch_size, sample=None, name="", v=False):
@@ -281,50 +283,57 @@ def make_dataloaders_old(input_path, batch_size, sample=None, v=False):
         )
     return dl
 
-def run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, results_folder, saved_models_folder, results_file, embeddings_path, device, input_size):
+def run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, results_folder, saved_models_folder, results_file, embeddings_path, device, input_size, em_type, datal_type=None):
     best_model_name = Path("")
-    best_model_auc = 0
+    best_model_l = 99999999
     res = []
 
     for p in ParameterGrid(parm_grid):
         print("Starting:", ''.join([f'_{k[0]}_{v}' for k, v in p.items()]))
-        output_suffix = f"{prefix.stem}{ ''.join([f'_{k[0]}_{v}' for k, v in p.items()])}"
+        output_suffix = f"{prefix.stem}_{em_type}{ ''.join([f'_{k[0]}_{v}' for k, v in p.items()])}"
         output_prefix = results_folder / output_suffix
         checkpoint_path = saved_models_folder / output_suffix
-        model = modular_network(p["n_layers"], p["drop_out"], input_size=input_size)
+        model = modular_network(p["n_layers"], p["drop_out"], input_size=input_size, start_hidden_size=p["hidden_size"])
 
         # print("Making train loader")
-        train_loader = make_dataloaders(input_path=train_seq_path, 
-                                        embeddings=embeddings_path, 
-                                        batch_size=p["batch_size"])
+        if datal_type == None:
+            train_loader = make_dataloaders(input_path=train_seq_path, 
+                                            embeddings=embeddings_path, 
+                                            batch_size=p["batch_size"])
+            # print("Making test loader")
+            test_loader = make_dataloaders(input_path=test_seq_path, 
+                                            embeddings=embeddings_path, 
+                                            batch_size=p["batch_size"])
+        elif datal_type== "old":
+            train_loader = make_dataloaders_old(input_path=train_seq_path,  
+                                            batch_size=p["batch_size"])
+            # print("Making test loader")
+            test_loader = make_dataloaders_old(input_path=test_seq_path,
+                                            batch_size=p["batch_size"])
 
-        # print("Making test loader")
-        test_loader = make_dataloaders(input_path=test_seq_path, 
-                                        embeddings=embeddings_path, 
-                                        batch_size=p["batch_size"])
+
         
-        model, history, best_l, epoch = train_model(model, epochs, train_loader, test_loader, verbose=False, device=device)
-        model.eval()
+        model, history, l, epoch = train_model(model, epochs, train_loader, test_loader, verbose=False, device=device)
+        # model.eval()
         
         # print("Making val loader")
-        val_loader = make_dataloaders(input_path=val_seq_path, 
-                                          embeddings=embeddings_path, 
-                                          batch_size=p["batch_size"])
-        pred, labels = run_validation(model, val_loader, device=device)
+        # val_loader = make_dataloaders(input_path=val_seq_path, 
+                                        #   embeddings=embeddings_path, 
+                                        #   batch_size=p["batch_size"])
+        # pred, labels = run_validation(model, val_loader, device=device)
         
-        auc = roc_auc_score(labels, pred)
-        print(f"AUC: {auc}")
+        # auc = roc_auc_score(labels, pred)
+        print(f"L: {l}")
 
-        if auc > best_model_auc:
-            best_model_auc = auc
+        if l < best_model_l:
+            best_model_l = l
             if best_model_name.is_file():
                 os.remove(best_model_name)
             torch.save(model.state_dict(), checkpoint_path)
             best_model_name = checkpoint_path
             
         r = p.copy()
-        r["val_auc"] = auc
-        r["t_loss"] = best_l
+        r["t_loss"] = l
         r["epoch"] = epoch
         r["model_name"] = checkpoint_path
         better_hist = {}
@@ -341,12 +350,16 @@ def run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, resu
     df.to_csv(results_file, sep="\t")
     return df
 
-def plot_best(df, test_seq_path, embeddings_path, output_prefix, device):
-    r = df.iloc[df['val_auc'].idxmax()]
-    model = modular_network(r["n_layers"], r["drop_out"])
+def plot_best(df, test_seq_path, embeddings_path, output_prefix, device, datal_type=None):
+    r = df.iloc[df['t_loss'].idxmin()]
+    model = modular_network(r["n_layers"], r["drop_out"], start_hidden_size=r["hidden_size"], input_size=input_size)
     model.load_state_dict(torch.load(r["model_name"], weights_only=True))
     model.eval()
-    val_loader = make_dataloaders(input_path=test_seq_path, embeddings=embeddings_path, batch_size=int(r["batch_size"]))
+    if datal_type == None:
+        val_loader = make_dataloaders(input_path=test_seq_path, embeddings=embeddings_path, batch_size=int(r["batch_size"]))
+    elif datal_type == "old":
+        val_loader = make_dataloaders_old(input_path=test_seq_path, batch_size=int(r["batch_size"]))
+
     print("Running validation")
     pred, labels = run_validation(model, val_loader, device=device)
     plot_auc(pred, labels, output_prefix)
@@ -359,10 +372,13 @@ if __name__ == "__main__":
     parser.add_argument('--batches', nargs='+', default=[32, 64, 128, 256])
     parser.add_argument('--layers', nargs='+', default=[1, 2, 3])
     parser.add_argument('--dropout', nargs='+', default=[0.1, 0.3, 0.5])
+    parser.add_argument('--hidden_size', nargs='+', default=[1024])
     parser.add_argument("--max_epochs", type=int, default=1000)
     parser.add_argument('--device', type=str, default="cpu")
     parser.add_argument('--input_size', type=int, default=3840)
     parser.add_argument("--em_type", type=str, default="avg")
+    parser.add_argument("--datal_type", type=str, default=None)
+    parser.add_argument("--result_file", type=str, default="gridsearch_results")
 
     args = parser.parse_args()
     prefix = Path(args.prefix)
@@ -370,11 +386,15 @@ if __name__ == "__main__":
     device = args.device
     input_size = args.input_size
     em_type = args.em_type
+    datal_type = args.datal_type
+    result_file_name = args.result_file
     print(f"running on {device}")
+    print(f"result_file_name: {result_file_name}")
 
     parm_grid = {
         "batch_size": [int(f) for f in args.batches],
         "n_layers": [int(f) for f in args.layers],
+        "hidden_size": [int(f) for f in args.hidden_size],
         "drop_out": [float(f) for f in args.dropout],
         }
 
@@ -390,10 +410,10 @@ if __name__ == "__main__":
     if not saved_models_folder.is_dir():
         saved_models_folder.mkdir()
 
-    results_file = results_folder / Path(f"{prefix.stem}_{em_type}_gridsearch_results.tsv")
+    results_file = results_folder / Path(f"{prefix.stem}_{em_type}_{result_file_name}.tsv")
     embeddings_path = Path(f"{prefix}_{em_type}_embeddings.tsv")
 
-    df = run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, results_folder, saved_models_folder, results_file, embeddings_path, device, input_size=input_size)
+    df = run_grid_search(parm_grid, train_seq_path, val_seq_path, test_seq_path, results_folder, saved_models_folder, results_file, embeddings_path, device, input_size=input_size, em_type=em_type, datal_type=datal_type)
     plot_best(df, test_seq_path, embeddings_path, results_folder, device)
 
     

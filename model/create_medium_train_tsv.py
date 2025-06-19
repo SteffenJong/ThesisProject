@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]=""
 os.environ["PYTORCH_CUDA_ALLOC_CONF"]="expandable_segments:True"
 import argparse
 from pathlib import Path
@@ -28,7 +28,9 @@ def create_segment_2(df: pd.DataFrame, flip=True):
     
     if flip:
         df1 = df.sample(frac=0.5,random_state=42)
-        df2 = df[~df.index.isin(halfa.index)]
+        # print("df1", df1.shape[0])
+        df2 = df[~df.index.isin(df1.index)].copy()
+        # print("df2", df2.shape[0])
         df1.reset_index(inplace=True)
         df2.reset_index(inplace=True)
         
@@ -38,7 +40,11 @@ def create_segment_2(df: pd.DataFrame, flip=True):
 
         df2["seq_x"] = df2.seq_xa + df2.seq_xb
         df2["seq_y"] = df2.seq_yb + df2.seq_ya
+
+        # print("df1", df1.shape[0])
+        # print("df2", df2.shape[0])
         df = pd.concat([df1, df2]).reset_index()
+        # print("df: ", df.shape[0])
         df.drop(columns=['seq_xa', 'seq_ya', 'seq_xb', 'seq_yb', "index"], inplace=True)
     else:
         df["seq_x"] = df.seq_xa + df.seq_xb
@@ -98,9 +104,18 @@ if __name__ == "__main__":
     if not output_prefix.parent.is_dir():
         raise ValueError(f"Output folder {output_prefix.parent} doesn't exist")
 
-    df = get_gene_fam_per_gene(gene_fam, refseqs)
+    df = get_gene_fam_per_gene(gene_fam, refseqs, sample_size=sample_size)
     df = create_similar_genes(df)
-    df = create_segment_2(df, flip=False)
+    # make sure the dataset has an even number of genes
+    if df.shape[0] %2 != 0:
+        df.drop(df.tail(1).index, inplace=True)
+
+    dfa = df.copy()
+    print("Amount of similar genes: ", df.shape[0])
+
+    df = create_segment_2(df, flip=True)
+    print("Amount of similar genes with flip: ", df.shape[0])
+
 
     df_negatives = create_negative_segment(df)
     df_negatives.insert(loc=7, column="similar", value=False)
@@ -110,16 +125,16 @@ if __name__ == "__main__":
     # df.reset_index().rename(columns={df.index.name:'segment_id'})
 
     train, test, val = create_train_test_val(df)
-    train.drop(columns=["seq_x", "seq_y"]).to_csv(str(output_prefix)+"_train.tsv", sep="\t")
-    test.drop(columns=["seq_x", "seq_y"]).to_csv(str(output_prefix)+"_test.tsv", sep="\t")
-    val.drop(columns=["seq_x", "seq_y"]).to_csv(str(output_prefix)+"_val.tsv", sep="\t")
+    train.to_csv(str(output_prefix)+"_train.tsv", sep="\t")
+    test.to_csv(str(output_prefix)+"_test.tsv", sep="\t")
+    val.to_csv(str(output_prefix)+"_val.tsv", sep="\t")
     
-    if str(output_prefix_raw) != "":
-        train.to_csv(str(output_prefix_raw)+"_train_raw.tsv", sep="\t")
-        test.to_csv(str(output_prefix_raw)+"_test_raw.tsv", sep="\t")
-        val.to_csv(str(output_prefix_raw)+"_val_raw.tsv", sep="\t")
+    # if str(output_prefix_raw) != "":
+    #     train.to_csv(str(output_prefix_raw)+"_train_raw.tsv", sep="\t")
+    #     test.to_csv(str(output_prefix_raw)+"_test_raw.tsv", sep="\t")
+    #     val.to_csv(str(output_prefix_raw)+"_val_raw.tsv", sep="\t")
 
     print("creating embeddings")
     embeddings = create_embeddings(df)
-    embeddings.to_csv(str(output_prefix)+"_embeddings.tsv", sep="\t", compression="gzip")
+    embeddings.to_csv(str(output_prefix)+"_avg_embeddings.tsv", sep="\t")
     

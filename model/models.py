@@ -133,10 +133,10 @@ class mini_network(nn.Module):
         return logits
 
 class modular_network(nn.Module):
-    def __init__(self, n_layers, drop_out, input_size=3840):
+    def __init__(self, n_layers, drop_out, input_size=3840, start_hidden_size=1024):
         super().__init__()
         layers = []
-        start_hidden_size = 1024
+        # start_hidden_size = 1024
         hidden_size = [input_size]
         for i in range(n_layers):
             hidden_size.append(start_hidden_size)
